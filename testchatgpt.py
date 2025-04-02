@@ -13,18 +13,28 @@ import pickle
 import seaborn as sns
 from sklearn.base import BaseEstimator, ClassifierMixin
 
-# Parâmetros
+# Parameters
 dataset_path = "dataset"
 labels_map = {"thumbs_up": 0, "thumbs_down": 1, "thumbs_left": 2, "thumbs_right": 3, "fist_closed": 4}
 n_neighbors = 5
 n_components = 10
-n_splits = 5  # Número de divisões para o K-Fold
+n_splits = 5  # Number of splits for K-Fold
 
-# Função para preprocessar imagem
+# Function to preprocess image
 def preprocess_image(image_path):
+    # Read image in grayscale
     image = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
+    if image is None:
+        raise ValueError(f"Failed to load image: {image_path}")
+    
+    # Apply Gaussian blur
     image = cv2.GaussianBlur(image, (5, 5), 0)
-    return cv2.resize(image, (64, 64), interpolation=cv2.INTER_AREA)
+    
+    # Resize to fixed size (80x60)
+    target_size = (80, 60)
+    image = cv2.resize(image, target_size, interpolation=cv2.INTER_AREA)
+    
+    return image
 
 # FFT Feature Extraction
 def extract_fft_features(image):
@@ -48,19 +58,19 @@ def extract_lda_features(image, lda):
     image_flat = image.flatten().reshape(1, -1)
     return lda.transform(image_flat).flatten()
 
-# Compressão usando PCA
+# Compression using PCA
 def compress_features_pca(features):
     pca = PCA(n_components=n_components)
     return pca.fit_transform(features)
 
-# Compressão usando LDA
+# Compression using LDA
 def compress_features_lda(features, labels):
-    n_classes = len(np.unique(labels))  # Número de classes
-    n_components_lda = min(n_components, n_classes - 1)  # Número máximo de componentes para LDA
+    n_classes = len(np.unique(labels))  # Number of classes
+    n_components_lda = min(n_components, n_classes - 1)  # Maximum number of components for LDA
     lda = LDA(n_components=n_components_lda)
     return lda.fit_transform(features, labels)
 
-# Implementação do BAC
+# BAC Implementation
 class BalancedCenterClassifier(BaseEstimator, ClassifierMixin):
     def fit(self, X, y):
         self.class_centers_ = {}
@@ -75,28 +85,35 @@ class BalancedCenterClassifier(BaseEstimator, ClassifierMixin):
             predictions.append(min(distances, key=distances.get))
         return np.array(predictions)
 
-# Carregar e processar dados
+# Load and process data
 data_fft, data_spec, labels = [], [], []
+print("Loading and processing images...")
 for label_name, label in labels_map.items():
     folder_path = os.path.join(dataset_path, label_name)
+    print(f"\nProcessing class: {label_name}")
     for filename in os.listdir(folder_path):
         file_path = os.path.join(folder_path, filename)
-        image = preprocess_image(file_path)
-        
-        data_fft.append(extract_fft_features(image))
-        data_spec.append(extract_spectrogram_features(image))
-        labels.append(label)
+        try:
+            image = preprocess_image(file_path)
+            data_fft.append(extract_fft_features(image))
+            data_spec.append(extract_spectrogram_features(image))
+            labels.append(label)
+        except Exception as e:
+            print(f"Error processing {file_path}: {str(e)}")
+            continue
 
-# Converter para numpy array
+print(f"\nTotal processed images: {len(labels)}")
+
+# Convert to numpy array
 data_fft = np.array(data_fft)
 data_spec = np.array(data_spec)
 labels = np.array(labels)
 
-# Aplicar compressão PCA e LDA nos espectrogramas
+# Apply PCA and LDA compression to spectrograms
 data_spec_pca = compress_features_pca(data_spec)
 data_spec_lda = compress_features_lda(data_spec, labels)
 
-# Treinar e avaliar modelos com K-Fold
+# Train and evaluate models with K-Fold
 def train_and_evaluate(X, y, model_name):
     kf = KFold(n_splits=n_splits, shuffle=True, random_state=42)
     
@@ -118,31 +135,31 @@ def train_and_evaluate(X, y, model_name):
     
     return (knn_mean, knn_std), (svm_mean, svm_std), (bac_mean, bac_std)
 
-# Parte 1.a: FFT + DR
-print("=== Parte 1.a: FFT + DR ===")
+# Part 1.a: FFT + DR
+print("=== Part 1.a: FFT + DR ===")
 
-# Aplicar PCA às características da FFT
+# Apply PCA to FFT features
 data_fft_pca = compress_features_pca(data_fft)
 
-# Aplicar LDA às características da FFT
+# Apply LDA to FFT features
 data_fft_lda = compress_features_lda(data_fft, labels)
 
-# Treinar e avaliar modelos com FFT + PCA
+# Train and evaluate models with FFT + PCA
 results_fft_pca = train_and_evaluate(data_fft_pca, labels, "FFT + PCA")
 
-# Treinar e avaliar modelos com FFT + LDA
+# Train and evaluate models with FFT + LDA
 results_fft_lda = train_and_evaluate(data_fft_lda, labels, "FFT + LDA")
 
-# Parte 1.b: Espectrogramas
-print("\n=== Parte 1.b: Espectrogramas ===")
+# Part 1.b: Spectrograms
+print("\n=== Part 1.b: Spectrograms ===")
 results_spec = train_and_evaluate(data_spec, labels, "Spectrogram Features")
 
-# Parte 1.c: Espectrogramas comprimidos (PCA e LDA)
-print("\n=== Parte 1.c: Espectrogramas Comprimidos (PCA e LDA) ===")
+# Part 1.c: Compressed Spectrograms (PCA and LDA)
+print("\n=== Part 1.c: Compressed Spectrograms (PCA and LDA) ===")
 results_pca = train_and_evaluate(data_spec_pca, labels, "Compressed Spectrogram Features - PCA")
 results_lda = train_and_evaluate(data_spec_lda, labels, "Compressed Spectrogram Features - LDA")
 
-# Gráficos comparativos
+# Comparative plots
 models = ["KNN", "SVM", "BAC"]
 x = np.arange(len(models))
 
@@ -196,4 +213,4 @@ print(f"Number of Spectrogram features: {data_spec.shape[1]}")
 print(f"Number of PCA features: {data_spec_pca.shape[1]}")
 print(f"Number of LDA features: {data_spec_lda.shape[1]}")
 
-print("\nModelos treinados e comparados com sucesso.")
+print("\nModels trained and compared successfully.")
