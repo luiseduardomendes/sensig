@@ -12,6 +12,7 @@ from sklearn.metrics import accuracy_score, confusion_matrix
 import pickle
 import seaborn as sns
 from sklearn.base import BaseEstimator, ClassifierMixin
+from mpl_toolkits.mplot3d import Axes3D
 
 # Parameters
 dataset_path = "dataset"
@@ -171,7 +172,7 @@ plt.xticks(ticks=x, labels=models)
 plt.ylabel("Accuracy")
 plt.title("Comparison FFT + PCA vs FFT + LDA")
 plt.legend()
-plt.show()
+#plt.show()
 
 # Plot for FFT vs Spectrograms
 plt.figure(figsize=(10, 6))
@@ -180,7 +181,7 @@ plt.xticks(ticks=x, labels=models)
 plt.ylabel("Accuracy")
 plt.title("Spectrograms")
 plt.legend()
-plt.show()
+#plt.show()
 
 # Plot for Compressed Spectrograms (PCA)
 plt.figure(figsize=(10, 6))
@@ -190,7 +191,7 @@ plt.xticks(ticks=x, labels=models)
 plt.ylabel("Accuracy")
 plt.title("Comparison Compressed Spectrograms PCA vs LDA")
 plt.legend()
-plt.show()
+#plt.show()
 
 # Combined Plot for FFT + PCA, FFT + LDA, and Compressed Spectrograms (PCA, LDA)
 plt.figure(figsize=(12, 8))
@@ -203,7 +204,7 @@ plt.xticks(ticks=x, labels=models)
 plt.ylabel("Accuracy")
 plt.title("Comparison of Different Feature Extraction Methods")
 plt.legend()
-plt.show()
+#plt.show()
 
 # Display number of features
 print(f"\nNumber of FFT features: {data_fft.shape[1]}")
@@ -214,3 +215,43 @@ print(f"Number of PCA features: {data_spec_pca.shape[1]}")
 print(f"Number of LDA features: {data_spec_lda.shape[1]}")
 
 print("\nModels trained and compared successfully.")
+
+# Visualization of feature maps
+def plot_feature_space(data, labels, title):
+    plt.figure(figsize=(10, 8))
+    for gesture in np.unique(labels):
+        indices = labels == gesture
+        gesture_name = list(labels_map.keys())[list(labels_map.values()).index(gesture)]
+        plt.scatter(data[indices, 0], data[indices, 1], label=gesture_name, alpha=0.5)
+    plt.title(title)
+    plt.xlabel('Component 1')
+    plt.ylabel('Component 2')
+    plt.legend()
+    plt.show()
+
+# Plot PCA and LDA feature spaces
+plot_feature_space(data_fft_pca, labels, 'FFT Features - PCA')
+plot_feature_space(data_fft_lda, labels, 'FFT Features - LDA')
+plot_feature_space(data_spec_pca, labels, 'Spectrogram Features - PCA')
+plot_feature_space(data_spec_lda, labels, 'Spectrogram Features - LDA')
+
+# Visualization of feature maps in 3D
+def plot_feature_space_3d(data, labels, title):
+    fig = plt.figure(figsize=(10, 8))
+    ax = fig.add_subplot(111, projection='3d')
+    for gesture in np.unique(labels):
+        indices = labels == gesture
+        gesture_name = list(labels_map.keys())[list(labels_map.values()).index(gesture)]
+        ax.scatter(data[indices, 0], data[indices, 1], data[indices, 2], label=gesture_name, alpha=0.5)
+    ax.set_title(title)
+    ax.set_xlabel('Component 1')
+    ax.set_ylabel('Component 2')
+    ax.set_zlabel('Component 3')
+    ax.legend()
+    plt.show()
+
+# Plot PCA and LDA feature spaces in 3D
+plot_feature_space_3d(data_fft_pca, labels, 'FFT Features - PCA (3D)')
+plot_feature_space_3d(data_fft_lda, labels, 'FFT Features - LDA (3D)')
+plot_feature_space_3d(data_spec_pca, labels, 'Spectrogram Features - PCA (3D)')
+plot_feature_space_3d(data_spec_lda, labels, 'Spectrogram Features - LDA (3D)')
